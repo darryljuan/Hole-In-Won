@@ -12,7 +12,7 @@ export const r={
  async acquire(){await init();const t=Date.now();await sql`delete from kv where h='lock' and (v->>'t')::bigint<${t-5000}`;const x=await sql`insert into kv(h,k,v) values('lock','l',${JSON.stringify({t})}::jsonb) on conflict do nothing returning k`;return x.length>0},
  async release(){await sql`delete from kv where h='lock'`}};
 export type Player={id:string;name:string;gender:'M'|'F';pin:string;captain:boolean};
-export type Ev={id:string;title:string;date:string;courseId:string;status:'draft'|'open'|'closed'|'published';flights:{time:string;slots:(string|null)[]}[];leaders:string[];locked:string[];scores:Record<string,(number|null)[]>};
+export type Ev={id:string;date:string;courseId:string;status:'draft'|'open'|'closed'|'published';times:string[];flights:(string|null)[][];pool:string[];leaders:string[];locked:string[];scores:Record<string,(number|null)[]>};
 export const uid=()=>Math.random().toString(36).slice(2,10);
 export async function me():Promise<Player|null>{const c=cookies().get('hiw')?.value;if(!c)return null;const [id,pin]=c.split(':');const p=await r.hget<Player>('hiw:players',id);return p&&p.pin===pin?p:null}
 export async function lock<T>(fn:()=>Promise<T>):Promise<T>{for(let i=0;i<30;i++){if(await r.acquire()){try{return await fn()}finally{await r.release()}}await new Promise(s=>setTimeout(s,100))}throw new Error('Busy, try again')}

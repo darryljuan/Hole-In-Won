@@ -1,1 +1,1 @@
-module.exports={content:['./app/**/*.tsx'],theme:{extend:{}},plugins:[]};
+module.exports={content:['./app/**/*.tsx'],theme:{extend:{colors:{rolex:'#006039',deep:'#04281b',gold:'#c8a96a',cream:'#f4efe1'},fontFamily:{serif:['var(--font-serif)','serif'],sans:['var(--font-sans)','sans-serif']}}},plugins:[]};

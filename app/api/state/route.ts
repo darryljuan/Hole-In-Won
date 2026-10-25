@@ -6,6 +6,6 @@ export async function GET(){
  const ps=(await r.hgetall<Record<string,Player>>('hiw:players'))||{};
  const es=Object.values((await r.hgetall<Record<string,Ev>>('hiw:events'))||{});
  const cap=!!u?.captain;
- const events=es.filter(e=>cap||e.status!=='draft').sort((a,b)=>a.date.localeCompare(b.date)).map(e=>cap||e.status!=='closed'?e:{...e,leaders:[],flights:e.flights.map(f=>({...f,slots:f.slots.map(s=>s&&'?')}))});
+ const events=es.filter(e=>e.pool&&(cap||e.status!=='draft')).sort((a,b)=>(a.date+a.times[0]).localeCompare(b.date+b.times[0])).map(e=>({...(cap||e.status==='published'?e:{...e,leaders:[],locked:[],scores:{},flights:e.flights.map(f=>f.map(()=>null)),pool:e.pool.filter(p=>p===u?.id)}),n:e.pool.length}));
  return Response.json({me:u&&{id:u.id,name:u.name,captain:u.captain},players:Object.values(ps).map(({pin,...p})=>p),events,courses:COURSES});
 }
