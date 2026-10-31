@@ -27,12 +27,14 @@ export async function POST(req:Request){
   if(!u)return no('Sign in first');
   if(A==='setCaptain'){if(!u.captain)return no('Captain only');const p=ps[b.pid];if(!p)return no('No such player');
    if(!b.captain&&Object.values(ps).filter(x=>x.captain).length<2)return no('Keep at least one captain');p.captain=!!b.captain;await r.hset('hiw:players',{[p.id]:p});return ok()}
+  if(A==='setPin'){if(!u.captain)return no('Captain only');const p=ps[b.pid];if(!p||!/^\d{4,8}$/.test(String(b.pin)))return no('PIN must be 4-8 digits');p.pin=String(b.pin);await r.hset('hiw:players',{[p.id]:p});if(p.id===u.id)sess(p);return ok()}
+  if(A==='removePlayer'){if(!u.captain)return no('Captain only');if(b.pid===u.id)return no("You can't remove yourself");if(!ps[b.pid])return no('No such player');await r.hdel('hiw:players',b.pid);const all=(await r.hgetall<Record<string,Ev>>('hiw:events'))||{};for(const e of Object.values(all)){if(e.pool?.includes(b.pid)){e.pool=e.pool.filter(x=>x!==b.pid);e.flights=e.flights.map(f=>f.map(x=>x===b.pid?null:x));await r.hset('hiw:events',{[e.id]:e})}}return ok()}
   if(A==='createEvent'){if(!u.captain)return no('Captain only');if(!b.date||!b.times?.length)return no('Date and tee times required');
    const e:Ev={id:uid(),date:b.date,courseId:b.courseId||'tampines',status:'draft',times:b.times,flights:b.times.map(()=>[null,null,null,null]),pool:[],leaders:[],locked:[],scores:{}};
    await r.hset('hiw:events',{[e.id]:e});return ok({id:e.id})}
   const ev=await r.hget<Ev>('hiw:events',b.eid);if(!ev)return no('Event not found');
   const save=async()=>{await r.hset('hiw:events',{[ev.id]:ev});return ok()};
-  if(['status','leader','generate','swap','lockp','delEvent'].includes(A)&&!u.captain)return no('Captain only');
+  if(['status','leader','generate','swap','lockp','delEvent','place'].includes(A)&&!u.captain)return no('Captain only');
   const tog=(a:string[],x:string)=>a.includes(x)?a.filter(y=>y!==x):[...a,x];
   switch(A){
    case 'status':ev.status=b.status;return save();
@@ -42,6 +44,8 @@ export async function POST(req:Request){
    case 'leader':ev.leaders=tog(ev.leaders,b.pid);return save();
    case 'lockp':ev.locked=tog(ev.locked,b.pid);return save();
    case 'generate':gen(ev,b.mode,ps);return save();
+   case 'place':{const fl=ev.flights;let from:number[]|null=null;fl.forEach((f,i)=>f.forEach((x,j)=>{if(x===b.pid)from=[i,j]}));if(!ev.pool.includes(b.pid))return no('Player not signed up');
+    if(b.to){const occ=fl[b.to.f]?.[b.to.s];if(occ===undefined)return no('Bad slot');if(from)fl[from[0]][from[1]]=occ;fl[b.to.f][b.to.s]=b.pid}else if(from)fl[from[0]][from[1]]=null;return save()}
    case 'swap':{const x=ev.flights[b.x.f],y=ev.flights[b.y.f];[x[b.x.s],y[b.y.s]]=[y[b.y.s],x[b.x.s]];return save()}
    case 'score':{const inEv=ev.flights.flat();if(ev.status!=='published'||!inEv.includes(b.pid))return no('Not playing');if(!(u.captain||inEv.includes(u.id)))return no('Not in this round');
     const v=b.v==null?null:Math.max(1,Math.min(15,+b.v));const s=ev.scores[b.pid]||Array(18).fill(null);s[b.hole]=v;ev.scores[b.pid]=s;return save()}

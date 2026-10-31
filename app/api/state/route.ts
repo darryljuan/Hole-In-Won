@@ -6,5 +6,5 @@ export async function GET(){
  const ps=ps0||{};const es=Object.values(es0||{});
  const cap=!!u?.captain;
  const events=es.filter(e=>e.pool&&(cap||e.status!=='draft')).sort((a,b)=>(a.date+a.times[0]).localeCompare(b.date+b.times[0])).map(e=>({...(cap||e.status==='published'?e:{...e,leaders:[],locked:[],scores:{},flights:e.flights.map(f=>f.map(()=>null)),pool:e.pool.filter(p=>p===u?.id)}),n:e.pool.length}));
- return Response.json({me:u&&{id:u.id,name:u.name,captain:u.captain},players:Object.values(ps).map(({pin,...p})=>p),events,courses:COURSES});
+ return Response.json({me:u&&{id:u.id,name:u.name,captain:u.captain},players:Object.values(ps).map(({pin,...p})=>cap?{...p,pin}:p),events,courses:COURSES});
 }
