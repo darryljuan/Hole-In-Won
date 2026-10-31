@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useState,useCallback} from 'react';
+import {useEffect,useState,useCallback,useRef} from 'react';
 const B='rounded-full bg-gold px-5 py-3 font-semibold tracking-wide text-deep active:scale-95 disabled:opacity-40';
 const G='rounded-full border border-gold/70 px-4 py-2 text-gold active:scale-95 disabled:opacity-40';
 const I='w-full rounded-xl border border-gold/30 bg-deep p-3 text-cream placeholder:text-cream/40';
@@ -11,8 +11,9 @@ const tp=(n:number)=>n===0?'E':n>0?`+${n}`:`${n}`;
 const sum=(a:any[])=>a.reduce((x:number,y:any)=>x+(y||0),0);
 export default function Home(){
  const [d,setD]=useState<any>(null),[tab,setTab]=useState('fl'),[date,setDate]=useState(''),[crs,setCrs]=useState(''),[tgt,setTgt]=useState(''),[others,setOthers]=useState(false),[ceid,setCeid]=useState(''),[pick,setPick]=useState<number[]|null>(null),[busy,setBusy]=useState(0),[err,setErr]=useState(''),[f,setF]=useState<any>({gender:'M'}),[g,setG]=useState<any>({courseId:'tampines'});
- const load=useCallback(async()=>setD(await fetch('/api/state',{cache:'no-store'}).then(r=>r.json())),[]);
- useEffect(()=>{const vis=()=>document.visibilityState==='visible';load();const t=setInterval(()=>vis()&&load(),5000);const v=()=>vis()&&load();document.addEventListener('visibilitychange',v);return()=>{clearInterval(t);document.removeEventListener('visibilitychange',v)}},[load]);
+ const pend=useRef(0),last=useRef(0),q=useRef<Promise<any>>(Promise.resolve());
+ const load=useCallback(async()=>{const j=await fetch('/api/state',{cache:'no-store'}).then(r=>r.json());if(pend.current>0||Date.now()-last.current<2500)return;setD(j)},[]);
+ useEffect(()=>{const vis=()=>document.visibilityState==='visible';load();const t=setInterval(()=>vis()&&load(),tab==='sc'||tab==='bd'?3000:8000);const v=()=>vis()&&load();document.addEventListener('visibilitychange',v);return()=>{clearInterval(t);document.removeEventListener('visibilitychange',v)}},[load,tab]);
  const call=async(a:string,b:any={})=>{setBusy(n=>n+1);try{return await post(a,b)}finally{setBusy(n=>n-1)}};
  const run=async(a:string,b:any={})=>{const j=await call(a,b);setErr(j.error||'');await load();return j};
  const spin=(busy>0||!d)&&<div className="fixed right-3 top-3 z-50 h-7 w-7 animate-spin rounded-full border-2 border-gold border-t-transparent"/>;
@@ -32,7 +33,7 @@ export default function Home(){
  const evOf=(pid:string)=>pubs.find((e:any)=>e.flights.flat().includes(pid));
  const allPl=pubs.flatMap((e:any)=>e.flights.flat().filter(Boolean)) as string[];
  const t=tgt&&allPl.includes(tgt)?tgt:allPl.includes(me)?me:allPl[0],te=t&&evOf(t),course=te&&d.courses.find((c:any)=>c.id===te.courseId),cs=(te&&te.scores[t])||Array(18).fill(null);
- const sc=(pid:string,h:number,v:number|null)=>{const e=evOf(pid);setD((p:any)=>({...p,events:p.events.map((x:any)=>x.id===e.id?{...x,scores:{...x.scores,[pid]:Object.assign([...(x.scores[pid]||Array(18).fill(null))],{[h]:v})}}:x)}));call('score',{eid:e.id,pid,hole:h,v})};
+ const sc=(pid:string,h:number,v:number|null)=>{const e=evOf(pid);setD((p:any)=>({...p,events:p.events.map((x:any)=>x.id===e.id?{...x,scores:{...x.scores,[pid]:Object.assign([...(x.scores[pid]||Array(18).fill(null))],{[h]:v})}}:x)}));pend.current++;last.current=Date.now();q.current=q.current.then(()=>post('score',{eid:e.id,pid,hole:h,v})).then(j=>{if(j.error)setErr(j.error)}).finally(()=>{pend.current--;last.current=Date.now()})};
  const rows=pubs.flatMap((e:any)=>{const c=d.courses.find((c:any)=>c.id===e.courseId);return e.flights.flat().filter(Boolean).map((id:string)=>{const s=e.scores[id]||[];const pl=s.map((v:any,i:number)=>v==null?-1:i).filter((i:number)=>i>=0);const gr=sum(pl.map((i:number)=>s[i]));return{id,g:gr,thru:pl.length,tp:gr-sum(pl.map((i:number)=>c.par[i]))}})}).sort((a:any,b:any)=>Number(b.thru>0)-Number(a.thru>0)||a.tp-b.tp||b.thru-a.thru);
  const ce=d.events.find((e:any)=>e.id===ceid)||d.events[d.events.length-1];
  const share=()=>{const x=`⛳ ${fd(ce.date)} · ${cn(ce.courseId)}\n${ce.flights.map((f:any,i:number)=>`Flight ${i+1} ${ce.times[i]}: ${f.filter(Boolean).map(P).join(', ')}`).join('\n')}\n\nGroupings & live scores: ${location.origin}`;navigator.clipboard?.writeText(x);window.open('https://wa.me/?text='+encodeURIComponent(x))};

@@ -9,6 +9,7 @@ export const r={
  async hgetall<T>(h:string):Promise<T|null>{await init();const x=await sql`select k,v from kv where h=${h}`;return Object.fromEntries(x.map((o:any)=>[o.k,o.v])) as T},
  async hset(h:string,o:Record<string,any>){await init();for(const [k,v] of Object.entries(o))await sql`insert into kv(h,k,v) values(${h},${k},${JSON.stringify(v)}::jsonb) on conflict(h,k) do update set v=excluded.v`},
  async hdel(h:string,k:string){await init();await sql`delete from kv where h=${h} and k=${k}`},
+ async setScore(eid:string,pid:string,hole:number,val:number|null){await init();await sql`update kv set v=jsonb_set(jsonb_set(v,array['scores',${pid}],coalesce(v->'scores'->${pid},to_jsonb(array_fill(null::int,array[18]))),true),array['scores',${pid},${String(hole)}],${JSON.stringify(val)}::jsonb,true) where h='hiw:events' and k=${eid}`},
  async acquire(){await init();const t=Date.now();await sql`delete from kv where h='lock' and (v->>'t')::bigint<${t-5000}`;const x=await sql`insert into kv(h,k,v) values('lock','l',${JSON.stringify({t})}::jsonb) on conflict do nothing returning k`;return x.length>0},
  async release(){await sql`delete from kv where h='lock'`}};
 export type Player={id:string;name:string;gender:'M'|'F';pin:string;captain:boolean};

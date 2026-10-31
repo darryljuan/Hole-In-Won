@@ -17,6 +17,7 @@ function gen(ev:Ev,mode:string,ps:Record<string,Player>){
 }
 export async function POST(req:Request){
  const b=await req.json();const A=b.a;
+ if(A==='score'){try{const [u,ev]=await Promise.all([me(),r.hget<Ev>('hiw:events',b.eid)]);if(!u)return no('Sign in first');if(!ev)return no('Event not found');const inEv=ev.flights.flat();if(ev.status!=='published'||!inEv.includes(b.pid))return no('Not playing');if(!(u.captain||inEv.includes(u.id)))return no('Not in this round');const v=b.v==null?null:Math.max(1,Math.min(15,+b.v));await r.setScore(ev.id,b.pid,+b.hole,v);return ok()}catch(e:any){return no(e.message)}}
  try{return await lock(async()=>{
   const u=await me();const ps=(await r.hgetall<Record<string,Player>>('hiw:players'))||{};
   if(A==='login'){const p=ps[b.id];if(!p||p.pin!==String(b.pin))return no('Wrong PIN');sess(p);return ok()}
