@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useState,useCallback,useRef} from 'react';
-import {DndContext,PointerSensor,TouchSensor,useSensor,useSensors,useDraggable,useDroppable} from '@dnd-kit/core';
+import {DndContext,MouseSensor,TouchSensor,useSensor,useSensors,useDraggable,useDroppable,DragOverlay,pointerWithin,rectIntersection} from '@dnd-kit/core';
 const B='rounded-full bg-gold px-5 py-3 font-semibold tracking-wide text-deep active:scale-95 disabled:opacity-40';
 const G='rounded-full border border-gold/70 px-4 py-2 text-gold active:scale-95 disabled:opacity-40';
 const I='w-full rounded-xl border border-gold/30 bg-deep p-3 text-cream placeholder:text-cream/40';
@@ -12,14 +12,14 @@ const tp=(n:number)=>n===0?'E':n>0?`+${n}`:`${n}`;
 const sum=(a:any[])=>a.reduce((x:number,y:any)=>x+(y||0),0);
 const TH:any={tampines:'border-gold/40 border-l-gold bg-gold/10',garden:'border-teal-300/30 border-l-teal-300 bg-teal-400/10'};
 const TG:any={tampines:'bg-gold text-deep',garden:'bg-teal-300 text-deep'};
-function Chip({id,label}:{id:string;label:string}){const {setNodeRef,listeners,attributes,transform,isDragging}=useDraggable({id});return <div ref={setNodeRef} style={{transform:transform?`translate3d(${transform.x}px,${transform.y}px,0)`:undefined,zIndex:isDragging?50:undefined}} className={`flex items-center justify-between rounded-lg bg-deep px-3 py-2 ${isDragging?'ring-2 ring-gold':''}`}><span>{label}</span><span {...listeners} {...attributes} style={{touchAction:'none'}} className="cursor-grab px-2 text-xl text-gold">⠿</span></div>}
+function Chip({id,label}:{id:string;label:string}){const {setNodeRef,listeners,attributes,isDragging}=useDraggable({id});return <div ref={setNodeRef} {...listeners} {...attributes} style={{WebkitTouchCallout:'none',WebkitUserSelect:'none',userSelect:'none'} as any} className={`flex cursor-grab items-center justify-between rounded-lg bg-deep px-3 py-2 ${isDragging?'opacity-30':''}`}><span>{label}</span><span className="px-2 text-xl text-gold">⠿</span></div>}
 function Drop({id,children}:{id:string;children:any}){const {setNodeRef,isOver}=useDroppable({id});return <div ref={setNodeRef} className={`min-h-[44px] rounded-xl border border-dashed p-1 ${isOver?'border-gold bg-gold/20':'border-gold/30'}`}>{children}</div>}
 export default function Home(){
  const [d,setD]=useState<any>(null),[tab,setTab]=useState('fl'),[date,setDate]=useState(''),[crs,setCrs]=useState(''),[tgt,setTgt]=useState(''),[others,setOthers]=useState(false),[ceid,setCeid]=useState(''),[pick,setPick]=useState<number[]|null>(null),[busy,setBusy]=useState(0),[err,setErr]=useState(''),[f,setF]=useState<any>({gender:'M'}),[g,setG]=useState<any>({courseId:'tampines'});
  const pend=useRef(0),last=useRef(0),q=useRef<Promise<any>>(Promise.resolve());
- const [sub,setSub]=useState('fl'),[sp,setSp]=useState(0);
- const sens=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:6}}),useSensor(TouchSensor,{activationConstraint:{delay:120,tolerance:8}}));
- useEffect(()=>{const f=()=>setSp(Math.min(1,scrollY/Math.max(1,document.body.scrollHeight-innerHeight)));addEventListener('scroll',f);return()=>removeEventListener('scroll',f)},[]);
+ const [sub,setSub]=useState('fl'),[sp,setSp]=useState(0),[act,setAct]=useState('');
+ const sens=useSensors(useSensor(MouseSensor,{activationConstraint:{distance:6}}),useSensor(TouchSensor,{activationConstraint:{delay:200,tolerance:8}}));
+ useEffect(()=>{const f=()=>setSp(Math.min(1,scrollY/Math.max(1,document.body.scrollHeight-innerHeight)));const n=()=>{};addEventListener('scroll',f);addEventListener('touchmove',n,{passive:false});return()=>{removeEventListener('scroll',f);removeEventListener('touchmove',n)}},[]);
  const load=useCallback(async()=>{const j=await fetch('/api/state',{cache:'no-store'}).then(r=>r.json());if(pend.current>0||Date.now()-last.current<2500)return;setD(j)},[]);
  useEffect(()=>{const vis=()=>document.visibilityState==='visible';load();const t=setInterval(()=>vis()&&load(),tab==='sc'||tab==='bd'?3000:8000);const v=()=>vis()&&load();document.addEventListener('visibilitychange',v);return()=>{clearInterval(t);document.removeEventListener('visibilitychange',v)}},[load,tab]);
  const call=async(a:string,b:any={})=>{setBusy(n=>n+1);try{return await post(a,b)}finally{setBusy(n=>n-1)}};
@@ -77,7 +77,7 @@ export default function Home(){
     <p className="text-xs text-cream/50">PIN saves when you tap away from the box.</p><b className={H}>Add player</b><input className={I} placeholder="Name" onChange={e=>setF({...f,name:e.target.value})}/><select className={I} onChange={e=>setF({...f,gender:e.target.value})}><option value="M">Male</option><option value="F">Female</option></select><input className={I} placeholder="PIN (4-8 digits)" inputMode="numeric" onChange={e=>setF({...f,pin:e.target.value})}/><button className={B} onClick={()=>run('addPlayer',f)}>Add player</button></div>}
    {sub==='fl'&&<>
     <div className={C}><b className={H}>New flights</b><input className={I} type="date" onChange={e=>setG({...g,date:e.target.value})}/><select className={I} onChange={e=>setG({...g,courseId:e.target.value})}>{d.courses.map((c:any)=><option key={c.id} value={c.id}>{c.name}</option>)}</select><input className={I} placeholder="Tee times: 07:30, 07:42, 07:54" onChange={e=>setG({...g,times:e.target.value.split(',').map((s:string)=>s.trim()).filter(Boolean)})}/><button className={B} onClick={()=>run('createEvent',g)}>Create draft</button></div>
-    <DndContext sensors={sens} onDragEnd={onEnd}>{list.map((e:any,i:number)=>{const un=e.pool.filter((p:string)=>!e.flights.flat().includes(p));return <div key={e.id}>
+    <DndContext sensors={sens} collisionDetection={(a:any)=>{const q=pointerWithin(a);return q.length?q:rectIntersection(a)}} onDragStart={(x:any)=>setAct(String(x.active.id))} onDragCancel={()=>setAct('')} onDragEnd={(x:any)=>{setAct('');onEnd(x)}}>{list.map((e:any,i:number)=>{const un=e.pool.filter((p:string)=>!e.flights.flat().includes(p));return <div key={e.id}>
      {(i===0||list[i-1].date!==e.date)&&<div className="mb-2 mt-4 flex items-center gap-3"><span className={H+' text-sm'}>{fd(e.date)}{e.date<today&&' · past'}</span><span className="h-px flex-1 bg-gold/30"/></div>}
      <div className={`space-y-2 rounded-2xl border border-l-4 p-4 ${TH[e.courseId]||TH.tampines}`}>
       <div className="flex items-center justify-between"><span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-widest ${TG[e.courseId]||TG.tampines}`}>{cn(e.courseId)}</span><span className="text-xs text-cream/60">Tee {e.times.join(' · ')}</span></div>
@@ -86,7 +86,7 @@ export default function Home(){
       <Drop id={`t|${e.id}`}>{un.length?un.map((p:string)=><div key={p} className="my-1"><Chip id={`p|${e.id}|${p}`} label={P(p)}/></div>):<p className="p-2 text-xs text-cream/40">Everyone is placed</p>}</Drop>
       {e.flights.map((x:any,fi:number)=><div key={fi}><b className="text-sm text-gold">Flight {fi+1} · {e.times[fi]}</b>{x.map((s:string|null,si:number)=><div key={si} className="mt-1"><Drop id={`s|${e.id}|${fi}|${si}`}>{s?<Chip id={`p|${e.id}|${s}`} label={P(s)}/>:<p className="p-2 text-xs text-cream/40">Drop player here</p>}</Drop></div>)}</div>)}
       <div className="flex items-center justify-between"><button className={G+' !px-3 !py-1 text-sm'} onClick={()=>shareE(e)}>📲 WhatsApp</button><button className="text-sm text-red-400" onClick={()=>confirm('Delete these flights?')&&run('delEvent',{eid:e.id})}>Delete</button></div>
-     </div></div>})}</DndContext>
+     </div></div>})}<DragOverlay>{act?<div className="rounded-lg bg-gold px-4 py-2 font-semibold text-deep shadow-xl">{P(act.split('|')[2])}</div>:null}</DragOverlay></DndContext>
     {!list.length&&<p className="text-cream/60">No flights yet.</p>}
     <div className="pointer-events-none fixed bottom-24 right-1 top-20 z-30 flex flex-col items-center justify-between text-[9px] uppercase tracking-widest text-gold/70"><span style={{writingMode:'vertical-rl'}}>Upcoming</span><div className="relative my-2 w-px flex-1 bg-gradient-to-b from-gold to-gold/10"><i className="absolute -left-[5px] h-3 w-3 rounded-full bg-gold" style={{top:`${sp*96}%`}}/></div><span style={{writingMode:'vertical-rl'}}>Future</span></div>
    </>}
