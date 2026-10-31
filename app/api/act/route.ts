@@ -34,7 +34,7 @@ export async function POST(req:Request){
    await r.hset('hiw:events',{[e.id]:e});return ok({id:e.id})}
   const ev=await r.hget<Ev>('hiw:events',b.eid);if(!ev)return no('Event not found');
   const save=async()=>{await r.hset('hiw:events',{[ev.id]:ev});return ok()};
-  if(['status','leader','generate','swap','lockp','delEvent','place'].includes(A)&&!u.captain)return no('Captain only');
+  if(['status','leader','generate','swap','lockp','delEvent','place','move'].includes(A)&&!u.captain)return no('Captain only');
   const tog=(a:string[],x:string)=>a.includes(x)?a.filter(y=>y!==x):[...a,x];
   switch(A){
    case 'status':ev.status=b.status;return save();
@@ -46,6 +46,13 @@ export async function POST(req:Request){
    case 'generate':gen(ev,b.mode,ps);return save();
    case 'place':{const fl=ev.flights;let from:number[]|null=null;fl.forEach((f,i)=>f.forEach((x,j)=>{if(x===b.pid)from=[i,j]}));if(!ev.pool.includes(b.pid))return no('Player not signed up');
     if(b.to){const occ=fl[b.to.f]?.[b.to.s];if(occ===undefined)return no('Bad slot');if(from)fl[from[0]][from[1]]=occ;fl[b.to.f][b.to.s]=b.pid}else if(from)fl[from[0]][from[1]]=null;return save()}
+   case 'move':{const te=b.toEid===ev.id?ev:await r.hget<Ev>('hiw:events',b.toEid);if(!te)return no('Target not found');if(!ev.pool.includes(b.pid))return no('Player not signed up');
+    let from:number[]|null=null;ev.flights.forEach((f,i)=>f.forEach((x,j)=>{if(x===b.pid)from=[i,j]}));const occ=b.to?te.flights[b.to.f]?.[b.to.s]:null;if(b.to&&occ===undefined)return no('Bad slot');
+    if(te===ev){if(b.to){if(from)ev.flights[from[0]][from[1]]=occ;ev.flights[b.to.f][b.to.s]=b.pid}else if(from)ev.flights[from[0]][from[1]]=null;return save()}
+    if(!occ&&!te.pool.includes(b.pid)&&te.pool.length>=te.times.length*4)return no('That flight is full');
+    ev.pool=ev.pool.filter(x=>x!==b.pid);if(from)ev.flights[from[0]][from[1]]=null;if(!te.pool.includes(b.pid))te.pool.push(b.pid);
+    if(b.to){if(occ){te.pool=te.pool.filter(x=>x!==occ);ev.pool.push(occ);if(from)ev.flights[from[0]][from[1]]=occ}te.flights[b.to.f][b.to.s]=b.pid}
+    await r.hset('hiw:events',{[ev.id]:ev,[te.id]:te});return ok()}
    case 'swap':{const x=ev.flights[b.x.f],y=ev.flights[b.y.f];[x[b.x.s],y[b.y.s]]=[y[b.y.s],x[b.x.s]];return save()}
    case 'score':{const inEv=ev.flights.flat();if(ev.status!=='published'||!inEv.includes(b.pid))return no('Not playing');if(!(u.captain||inEv.includes(u.id)))return no('Not in this round');
     const v=b.v==null?null:Math.max(1,Math.min(15,+b.v));const s=ev.scores[b.pid]||Array(18).fill(null);s[b.hole]=v;ev.scores[b.pid]=s;return save()}

@@ -46,9 +46,13 @@ export default function Home(){
  const ce=d.events.find((e:any)=>e.id===ceid)||d.events[d.events.length-1];
  const share=()=>{const x=`⛳ ${fd(ce.date)} · ${cn(ce.courseId)}\n${ce.flights.map((f:any,i:number)=>`Flight ${i+1} ${ce.times[i]}: ${f.filter(Boolean).map(P).join(', ')}`).join('\n')}\n\nGroupings & live scores: ${location.origin}`;navigator.clipboard?.writeText(x);window.open('https://wa.me/?text='+encodeURIComponent(x))};
  const list=[...d.events.filter((e:any)=>e.date>=today),...d.events.filter((e:any)=>e.date<today).reverse()];
- const onEnd=(x:any)=>{const a=String(x.active.id).split('|'),o=x.over&&String(x.over.id).split('|');if(!o||a[1]!==o[1])return;const eid=a[1],pid=a[2],to=o[0]==='s'?{f:+o[2],s:+o[3]}:null;
-  setD((p:any)=>({...p,events:p.events.map((e:any)=>{if(e.id!==eid)return e;const fl=e.flights.map((f:any)=>[...f]);let from:any=null;fl.forEach((f:any,i:number)=>f.forEach((y:any,j:number)=>{if(y===pid)from=[i,j]}));if(to){const occ=fl[to.f][to.s];if(from)fl[from[0]][from[1]]=occ;fl[to.f][to.s]=pid}else if(from)fl[from[0]][from[1]]=null;return{...e,flights:fl}})}));
-  pend.current++;last.current=Date.now();q.current=q.current.then(()=>post('place',{eid,pid,to})).then(j=>{if(j.error)setErr(j.error)}).finally(()=>{pend.current--;last.current=Date.now()})};
+ const onEnd=(x:any)=>{const a=String(x.active.id).split('|'),o=x.over&&String(x.over.id).split('|');if(!o)return;const se=d.events.find((e:any)=>e.id===a[1]),te=d.events.find((e:any)=>e.id===o[1]);if(!se||!te)return;
+  const pid=a[2],to=o[0]==='s'?{f:+o[2],s:+o[3]}:null;
+  setD((p:any)=>{const evs=p.events.map((e:any)=>({...e,pool:[...e.pool],flights:e.flights.map((f:any)=>[...f])}));const S=evs.find((e:any)=>e.id===se.id),T=evs.find((e:any)=>e.id===te.id);let from:any=null;S.flights.forEach((f:any,i:number)=>f.forEach((y:any,j:number)=>{if(y===pid)from=[i,j]}));const occ=to?T.flights[to.f][to.s]:null;
+   if(S===T){if(to){if(from)S.flights[from[0]][from[1]]=occ;S.flights[to.f][to.s]=pid}else if(from)S.flights[from[0]][from[1]]=null}
+   else{S.pool=S.pool.filter((y:string)=>y!==pid);if(from)S.flights[from[0]][from[1]]=null;if(!T.pool.includes(pid))T.pool.push(pid);if(to){if(occ){T.pool=T.pool.filter((y:string)=>y!==occ);S.pool.push(occ);if(from)S.flights[from[0]][from[1]]=occ}T.flights[to.f][to.s]=pid}}
+   return{...p,events:evs}});
+  pend.current++;last.current=Date.now();q.current=q.current.then(()=>post('move',{eid:se.id,pid,toEid:te.id,to})).then(j=>{if(j.error)setErr(j.error)}).finally(()=>{pend.current--;last.current=Date.now()})};
  const shareE=(e:any)=>{const x=`⛳ ${fd(e.date)} · ${cn(e.courseId)}\n${e.flights.map((f:any,i:number)=>`Flight ${i+1} ${e.times[i]}: ${f.filter(Boolean).map(P).join(', ')}`).join('\n')}\n\nGroupings & live scores: ${location.origin}`;navigator.clipboard?.writeText(x);window.open('https://wa.me/?text='+encodeURIComponent(x))};
  const tabs=[['fl','Flights'],['sc','Score'],['bd','Board'],...(cap?[['cap','Captain']]:[])];
  return(<main className="mx-auto max-w-md space-y-3 p-4">{spin}
