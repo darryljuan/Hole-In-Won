@@ -17,7 +17,7 @@ function gen(ev:Ev,mode:string,ps:Record<string,Player>){
 }
 export async function POST(req:Request){
  const b=await req.json();const A=b.a;
- if(A==='score'){try{const [u,ev]=await Promise.all([me(),r.hget<Ev>('hiw:events',b.eid)]);if(!u)return no('Sign in first');if(!ev)return no('Event not found');const inEv=ev.flights.flat();if(ev.status!=='published'||!inEv.includes(b.pid))return no('Not playing');if(!(u.captain||inEv.includes(u.id)))return no('Not in this round');const v=b.v==null?null:Math.max(1,Math.min(15,+b.v));await r.setScore(ev.id,b.pid,+b.hole,v);return ok()}catch(e:any){return no(e.message)}}
+ if(A==='score'){try{const [u,ev]=await Promise.all([me(),r.hget<Ev>('hiw:events',b.eid)]);if(!u)return no('Sign in first');if(!ev)return no('Event not found');const inEv=ev.flights.flat();if(ev.status!=='published'||!inEv.includes(b.pid))return no('Not playing');if(!(u.captain||b.pid===u.id))return no('You can only update your own score');const v=b.v==null?null:Math.max(1,Math.min(15,+b.v));await r.setScore(ev.id,b.pid,+b.hole,v);return ok()}catch(e:any){return no(e.message)}}
  try{return await lock(async()=>{
   const u=await me();const ps=(await r.hgetall<Record<string,Player>>('hiw:players'))||{};
   if(A==='login'){const p=ps[b.id];if(!p||p.pin!==String(b.pin))return no('Wrong PIN');sess(p);return ok()}
@@ -39,7 +39,7 @@ export async function POST(req:Request){
   switch(A){
    case 'status':ev.status=b.status;return save();
    case 'delEvent':await r.hdel('hiw:events',ev.id);return ok();
-   case 'claim':if(ev.status!=='open')return no('Signups are not open');if(ev.pool.includes(u.id))return no('You already have a slot');if(ev.pool.length>=ev.times.length*4)return no('All slots taken');ev.pool.push(u.id);return save();
+   case 'claim':{if(ev.status!=='open')return no('Signups are not open');const all=Object.values((await r.hgetall<Record<string,Ev>>('hiw:events'))||{});if(all.some(e=>e.date===ev.date&&e.pool?.includes(u.id)))return no('You already have a slot on this day');const fl=ev.flights.find(f=>f.includes(null));if(!fl||ev.pool.length>=ev.times.length*4)return no('All slots taken');fl[fl.indexOf(null)]=u.id;ev.pool.push(u.id);return save()}
    case 'leave':if(ev.status!=='open')return no('Signups are closed');ev.pool=ev.pool.filter(x=>x!==u.id);ev.flights=ev.flights.map(f=>f.map(x=>x===u.id?null:x));return save();
    case 'leader':ev.leaders=tog(ev.leaders,b.pid);return save();
    case 'lockp':ev.locked=tog(ev.locked,b.pid);return save();
@@ -54,7 +54,7 @@ export async function POST(req:Request){
     if(b.to){if(occ){te.pool=te.pool.filter(x=>x!==occ);ev.pool.push(occ);if(from)ev.flights[from[0]][from[1]]=occ}te.flights[b.to.f][b.to.s]=b.pid}
     await r.hset('hiw:events',{[ev.id]:ev,[te.id]:te});return ok()}
    case 'swap':{const x=ev.flights[b.x.f],y=ev.flights[b.y.f];[x[b.x.s],y[b.y.s]]=[y[b.y.s],x[b.x.s]];return save()}
-   case 'score':{const inEv=ev.flights.flat();if(ev.status!=='published'||!inEv.includes(b.pid))return no('Not playing');if(!(u.captain||inEv.includes(u.id)))return no('Not in this round');
+   case 'score':{const inEv=ev.flights.flat();if(ev.status!=='published'||!inEv.includes(b.pid))return no('Not playing');if(!(u.captain||b.pid===u.id))return no('You can only update your own score');
     const v=b.v==null?null:Math.max(1,Math.min(15,+b.v));const s=ev.scores[b.pid]||Array(18).fill(null);s[b.hole]=v;ev.scores[b.pid]=s;return save()}
   }
   return no('Unknown action');
